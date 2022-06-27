@@ -21,6 +21,7 @@ dependencies {
     implementation group: 'com.codeborne', name: 'selenide', version: '6.5.2'
     implementation group: 'mysql', name: 'mysql-connector-java', version: '8.0.29'
     implementation group: 'commons-dbutils', name: 'commons-dbutils', version: '1.7'
+    implementation group: 'com.github.javafaker', name: 'javafaker', version: '1.0.2'
 }
 
 test {

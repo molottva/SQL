@@ -12,29 +12,45 @@ public class SQLHelper {
     private static Connection conn;
 
     @SneakyThrows
-    public static void setup() {
+    public static void setUp() {
         runner = new QueryRunner();
         conn = DriverManager.getConnection
                 ("jdbc:mysql://localhost:3306/app", "app", "pass");
     }
 
     @SneakyThrows
-    public static String getLoginByUserId(String id) {
-        setup();
-        var loginSQL = "SELECT login FROM users WHERE id IN ('" + id + "');";
-        var login = runner.query(conn, loginSQL, new ScalarHandler<String>());
-        return login;
+    public static void setDown() {
+        setUp();
+        reloadVerifyCodeTable();
+        var sqlQueryOne = "DELETE FROM card_transactions;";
+        var sqlQueryTwo = "DELETE FROM cards;";
+        var sqlQueryThree = "DELETE FROM users;";
+        runner.update(conn, sqlQueryOne);
+        runner.update(conn, sqlQueryTwo);
+        runner.update(conn, sqlQueryThree);
     }
 
     @SneakyThrows
-    public static String getVerifyCodeByUserId(String id, boolean newest) {
-        setup();
-        String limit = (newest) ? "1": "1, 1";
-        var codeSQL = "SELECT code FROM auth_codes " +
-                "WHERE user_id IN ('" + id + "') " +
-                "ORDER BY created DESC " +
-                "LIMIT " + limit + ";";
-        var code = runner.query(conn, codeSQL, new ScalarHandler<String>());
-        return code;
+    public static void reloadVerifyCodeTable() {
+        setUp();
+        var sqlQuery = "DELETE FROM auth_codes;";
+        runner.update(conn, sqlQuery);
+    }
+
+    @SneakyThrows
+    public static String getVerifyCodeByLogin(String login, String sqlLimit) {
+        setUp();
+        var sqlQuery = "SELECT code FROM auth_codes " +
+                "JOIN users ON user_id = users.id " +
+                "WHERE login IN (?) " +
+                "ORDER BY created DESC LIMIT " + sqlLimit + ";";
+        return runner.query(conn, sqlQuery, new ScalarHandler<String>(), login);
+    }
+
+    @SneakyThrows
+    public static String getUserStatus(String login) {
+        setUp();
+        var sqlQuery = "SELECT status FROM users WHERE login IN (?);";
+        return runner.query(conn, sqlQuery, new ScalarHandler<String>(), login);
     }
 }
