@@ -1,6 +1,5 @@
 package ru.netology.page;
 
-import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.SelenideElement;
 
 import static com.codeborne.selenide.Condition.*;
@@ -29,25 +28,35 @@ public class LoginPage {
         loginInput.val(login);
         passwordInput.val(password);
         loginButton.click();
-        if (login == null) {
-            loginInputEmptyNotification.should(text("Поле обязательно для заполнения"));
-        } else if (password == null) {
-            passwordInputEmptyNotification.should(text("Поле обязательно для заполнения"));
-        } else {
-            loginInputEmptyNotification.shouldNot(exist);
-            passwordInputEmptyNotification.shouldNot(exist);
-        }
     }
 
-    public VerifyPage login(Condition status) {
-        errorNotification.should(status);
-        errorButton.should(status);
-        if (status.equals(visible)) {
-            errorButton.click();
-            errorNotification.should(hidden);
-            errorButton.should(hidden);
-            return new VerifyPage(hidden);
-        }
-        return new VerifyPage(visible);
+    public VerifyPage success() {
+        errorNotification.should(hidden);
+        errorButton.should(hidden);
+        return new VerifyPage();
+    }
+
+    public void failed() {
+        errorNotification.should(visible);
+        errorNotification.$x(".//div[@class='notification__content']").
+                should(text("Ошибка! " + "Неверно указан логин или пароль"));
+        errorButton.click();
+        errorNotification.should(hidden);
+    }
+
+    public void blocked() {
+        errorNotification.should(visible);
+        errorNotification.$x(".//div[@class='notification__content']").
+                should(text("Ошибка! " + "Пользователь заблокирован"));
+        errorButton.click();
+        errorNotification.should(hidden);
+    }
+
+    public void emptyLogin() {
+        loginInputEmptyNotification.should(text("Поле обязательно для заполнения"));
+    }
+
+    public void emptyPassword() {
+        passwordInputEmptyNotification.should(text("Поле обязательно для заполнения"));
     }
 }

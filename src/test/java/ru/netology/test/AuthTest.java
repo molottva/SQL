@@ -1,116 +1,126 @@
 package ru.netology.test;
 
-import com.github.javafaker.Faker;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import ru.netology.data.DataHelper;
 import ru.netology.data.SQLHelper;
-import ru.netology.data.UserData;
 import ru.netology.page.LoginPage;
 
-import static com.codeborne.selenide.Condition.hidden;
-import static com.codeborne.selenide.Condition.visible;
 import static com.codeborne.selenide.Selenide.open;
 import static org.testng.Assert.assertEquals;
-import static ru.netology.data.SQLHelper.*;
 
 public class AuthTest {
-    UserData user;
+    DataHelper.UserData user;
+    DataHelper.VerifyCode code;
     LoginPage loginPage;
-    Faker faker = new Faker();
 
     @BeforeMethod
     public void setUp() {
-        reloadVerifyCodeTable();
         open("http://localhost:9999/");
-        user = new UserData();
+        user = DataHelper.getUser();
         loginPage = new LoginPage();
     }
 
-    @AfterClass
+    @AfterMethod
     public void setDown() {
+        SQLHelper.reloadVerifyCodeTable();
+        SQLHelper.setUserStatus(user.getLogin(), "active");
+    }
+
+    @AfterClass
+    public void setDownClass() {
         SQLHelper.setDown();
     }
 
-    @Test
+    @Test(description = "Успешная авторизация")
     public void shouldAuth() {
         loginPage.insert(user.getLogin(), user.getPassword());
-        var verifyPage = loginPage.login(hidden);
-        verifyPage.insert(getVerifyCodeByLogin(user.getLogin(), "1"));
-        var dashboardPage = verifyPage.verify(hidden);
+        var verifyPage = loginPage.success();
+        code = DataHelper.getValidCode(user.getLogin());
+        verifyPage.insert(code.getVerifyCode());
+        var dashboardPage = verifyPage.success();
     }
 
-    @Test
+    @Test(description = "Отказ в авторизации с устаревшим верифиционным паролем")
     public void shouldNoAuthWithOldestVerifyCode() {
         loginPage.insert(user.getLogin(), user.getPassword());
-        var verifyPage = loginPage.login(hidden);
-        verifyPage.insert(getVerifyCodeByLogin(user.getLogin(), "1"));
-        var dashboardPage = verifyPage.verify(hidden);
+        var verifyPage = loginPage.success();
+        code = DataHelper.getValidCode(user.getLogin());
+        verifyPage.insert(code.getVerifyCode());
+        var dashboardPage = verifyPage.success();
 
         open("http://localhost:9999/");
         loginPage.insert(user.getLogin(), user.getPassword());
-        verifyPage = loginPage.login(hidden);
-        verifyPage.insert(getVerifyCodeByLogin(user.getLogin(), "1, 1"));
-        dashboardPage = verifyPage.verify(visible);
+        verifyPage = loginPage.success();
+        verifyPage.insert(code.getVerifyCode());
+        verifyPage.failed();
     }
 
-    @Test
+    @Test(description = "Отказ в авторизации с рандомным верифиционным паролем")
     public void shouldNoAuthWithInvalidVerifyCode() {
         loginPage.insert(user.getLogin(), user.getPassword());
-        var verifyPage = loginPage.login(hidden);
-        verifyPage.insert(String.valueOf(faker.number().numberBetween(10_000, 999_999)));
-        var dashboardPage = verifyPage.verify(visible);
+        var verifyPage = loginPage.success();
+        code = DataHelper.getRandomCode();
+        verifyPage.insert(code.getVerifyCode());
+        verifyPage.failed();
     }
 
-    @Test
+    @Test(description = "Отказ в авторизации с невалидным паролем")
     public void shouldNoAuthWithInvalidPassword() {
-        loginPage.insert(user.getLogin(), faker.internet().password());
-        var verifyPage = loginPage.login(visible);
+        var password = DataHelper.getRandomPassword();
+        loginPage.insert(user.getLogin(), password);
+        loginPage.failed();
     }
 
-    @Test
+    @Test(description = "Отказ в авторизации с невалидным логиным")
     public void shouldNoAuthWithInvalidLogin() {
-        loginPage.insert(faker.name().username(), user.getPassword());
-        var verifyPage = loginPage.login(visible);
+        var login = DataHelper.getRandomLogin();
+        loginPage.insert(login, user.getPassword());
+        loginPage.failed();
     }
 
-    //todo bug
-    @Test
-    public void shouldBlockUserAfterThreeInputInvalidVerifyCode() {
-        loginPage.insert(user.getLogin(), user.getPassword());
-        var verifyPage = loginPage.login(hidden);
-        verifyPage.insert(String.valueOf(faker.number().numberBetween(10_000, 999_999)));
-        var dashboardPage = verifyPage.verify(visible);
+    @Test(description = "Блокировка пользователя после трех попыток ввода невалидного пароля")
+    public void shouldBlockUserAfterThreeInputInvalidPassword() {
+        var password = DataHelper.getRandomPassword();
+        loginPage.insert(user.getLogin(), password);
+        loginPage.failed();
+
+        open("http://localhost:9999/");
+        password = DataHelper.getRandomPassword();
+        loginPage.insert(user.getLogin(), password);
+        loginPage.failed();
+
+        open("http://localhost:9999/");
+        password = DataHelper.getRandomPassword();
+        loginPage.insert(user.getLogin(), password);
+        loginPage.failed();
+
+        assertEquals(SQLHelper.getUserStatus(user.getLogin()), "blocked");
 
         open("http://localhost:9999/");
         loginPage.insert(user.getLogin(), user.getPassword());
-        verifyPage = loginPage.login(hidden);
-        verifyPage.insert(String.valueOf(faker.number().numberBetween(10_000, 999_999)));
-        dashboardPage = verifyPage.verify(visible);
-
-        open("http://localhost:9999/");
-        loginPage.insert(user.getLogin(), user.getPassword());
-        verifyPage = loginPage.login(hidden);
-        verifyPage.insert(String.valueOf(faker.number().numberBetween(10_000, 999_999)));
-        dashboardPage = verifyPage.verify(visible);
-
-        assertEquals(getUserStatus(user.getLogin()), "blocked");
+        loginPage.blocked();
     }
 
-    @Test
+    @Test(description = "Сообщение об пустом поле проверочного пароля")
     public void shouldNotificationWithEmptyVerifyCode() {
         loginPage.insert(user.getLogin(), user.getPassword());
-        var verifyPage = loginPage.login(hidden);
+        var verifyPage = loginPage.success();
         verifyPage.insert(null);
+        verifyPage.emptyCode();
     }
 
-    @Test
+    @Test(description = "Сообщение об пустом поле пароля")
     public void shouldNotificationWithEmptyPassword() {
         loginPage.insert(user.getLogin(), null);
+        loginPage.emptyPassword();
     }
 
-    @Test
+    @Test(description = "Сообщение об пустом поле логина")
     public void shouldNotificationWithEmptyLogin() {
         loginPage.insert(null, user.getPassword());
+        loginPage.emptyLogin();
     }
 }

@@ -53,4 +53,11 @@ public class SQLHelper {
         var sqlQuery = "SELECT status FROM users WHERE login IN (?);";
         return runner.query(conn, sqlQuery, new ScalarHandler<String>(), login);
     }
+
+    @SneakyThrows
+    public static void setUserStatus(String login, String userStatus) {
+        setUp();
+        var sqlQuery = "UPDATE users SET status = '" + userStatus + "' WHERE login IN(?);";
+        runner.update(conn, sqlQuery, login);
+    }
 }

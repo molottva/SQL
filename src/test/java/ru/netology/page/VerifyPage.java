@@ -1,6 +1,5 @@
 package ru.netology.page;
 
-import com.codeborne.selenide.Condition;
 import com.codeborne.selenide.SelenideElement;
 
 import static com.codeborne.selenide.Condition.*;
@@ -14,9 +13,9 @@ public class VerifyPage {
     private SelenideElement errorNotification = $x("//div[@data-test-id='error-notification']");
     private SelenideElement errorButton = $x("//div[@data-test-id='error-notification']/button");
 
-    public VerifyPage(Condition status) {
-        codeInput.should(status);
-        verifyButton.should(status);
+    public VerifyPage() {
+        codeInput.should(visible);
+        verifyButton.should(visible);
         errorNotification.should(hidden);
         errorButton.should(hidden);
     }
@@ -24,22 +23,23 @@ public class VerifyPage {
     public void insert(String code) {
         codeInput.val(code);
         verifyButton.click();
-        if (code == null) {
-            codeInputEmptyNotification.should(text("Поле обязательно для заполнения"));
-        } else {
-            codeInputEmptyNotification.shouldNot(exist);
-        }
     }
 
-    public DashboardPage verify(Condition status) {
-        errorNotification.should(status);
-        errorButton.should(status);
-        if (status.equals(visible)) {
-            errorButton.click();
-            errorNotification.should(hidden);
-            errorButton.should(hidden);
-            return new DashboardPage(hidden);
-        }
-        return new DashboardPage(visible);
+    public DashboardPage success() {
+        errorNotification.should(hidden);
+        errorButton.should(hidden);
+        return new DashboardPage();
+    }
+
+    public void failed() {
+        errorNotification.should(visible);
+        errorNotification.$x(".//div[@class='notification__content']").
+                should(text("Ошибка! " + "Неверно указан код! Попробуйте ещё раз."));
+        errorButton.click();
+        errorNotification.should(hidden);
+    }
+
+    public void emptyCode() {
+        codeInputEmptyNotification.should(text("Поле обязательно для заполнения"));
     }
 }
